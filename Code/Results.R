@@ -7,11 +7,13 @@ p_load(tidyverse,
        datawizard,
        miceadds,
        car,
-       scales)
+       scales,
+       ggplot2,reshape)
 load("~/GitHub/UML_GA/Code/FIFA2017_NL.RData")
 
 ## Data
 summary(fifa)
+n <- names(fifa)
 
 fifa$clubNR <- as.numeric(fifa$club)
 df <- fifa %>% fastDummies::dummy_columns('Position')
@@ -72,12 +74,63 @@ PCAobj2$sdev %>%
   scale_y_continuous(name = "Variance Explained", breaks = seq(0,0.8,0.1), labels = percent_format(accuracy = 5L)) +
   theme_classic(base_size = 14)
 
+# Loadings Heatmap
+PCAvarmax2[,1] <- PCAvarmax2[,1]*(-1)
+t<-PCAvarmax2 %>% as.data.frame %>% rownames_to_column() %>% melt
 
-plot(PCAbipl(X))
-biplot(PCAobj2)
+ggplot(t, aes(variable, rowname, fill= value)) + 
+  geom_tile()
 
-plot(-clubDims[,1], clubDims[,2], xlim=c(-1.5,1.5))
-abline(v = 0, col = "black", lwd = 1)
-abline(h = 0, col = "black")
+# heatmap for PCA loadings
+# hmap_t2_t0_long <- hmap_t2_t0 %>%
+#   rownames_to_column(var = "Gene") %>%
+#   gather(Sample_ID, VST, -Gene) %>% 
+#   full_join(md, by = "Sample_ID")  
+# 
+# hmap_t2_t0_long <- hmap_t2_t0 %>%
+#   rownames_to_column(var = "Gene") %>%
+#   gather(Sample_ID, VST, -Gene) %>% 
+#   full_join(md, by = "Sample_ID")  
+# 
+# vst_pca_all <- vst_pca$x %>%
+#   as.data.frame() %>%
+#   rownames_to_column(var = "Sample_ID") %>%
+#   full_join(md, by = "Sample_ID")
+# 
+# hmap_t2_t0_long$Sample_Name <- factor(hmap_t2_t0_long$Sample_Name, levels = 
+#                                         c("t0_A","t0_B","t0_C","t2_A","t2_B","t2_C","t6_A","t6_B","t6_C","t24_A","t24_B","t24_C"))
+# hmap_t2_t0_long$Time <- factor(hmap_t2_t0_long$Time, levels = c("t0","t2","t6","t24"))
+# hmap_t2_t0_long$Replicate <- factor(hmap_t2_t0_long$Replicate, levels = c("A","B","C"))
+# hmap_t2_t0_long$Gene <- factor(hmap_t2_t0_long$Gene, levels = row.names(hmap_t2_t0))
+# 
+# PCAvarmax2$Gene <- factor(hmap_t2_t0_long$Gene, levels = row.names(hmap_t2_t0))
+# ggplot(as.data.frame(PCAvarmax2)) +
+#   geom_tile(aes(x = Sample_Name, y = Gene, fill = VST)) +
+#   scale_fill_gradientn(colours = rainbow(5)) +
+#   scale_x_discrete(limits = c("V1","V2")) +
+#   theme(axis.text.y = element_blank(), axis.ticks = element_blank()) 
+
+
+# BiPlot
+# scale=500
+# ggplot(data=vst_pca_all, mapping=aes(x=PC1, y=PC2)) +
+#   geom_point(size = 3, aes(shape = Replicate, color = Time)) +
+#   geom_vline(xintercept = 0, linetype=2) +
+#   geom_hline(yintercept = 0, linetype=2) +
+#   geom_segment(data=genes.selected, mapping=aes(xend=scale*PC1,yend=scale*PC2), x=0, y=0, arrow=arrow(), color="grey") +
+#   geom_label(data=genes.selected, mapping=aes(x=scale*PC1,y=scale*PC2, label=Gene_ID), size=2, hjust="outward", vjust="outward") +
+#   theme_bw() +
+#   theme(panel.grid.major = element_blank(),  panel.grid.minor = element_blank())
+
+
+
+
+# Team Plot
+plot(-clubDims[,1], clubDims[,2], xlim=c(-1.5,1.5),
+     xlab="Offensive Principle Component", ylab="Defensive Principle Component")
+abline(v = 0, col = "black", lwd = 1, lty=2)
+abline(h = 0, col = "black", lwd = 1, lty=2)
 text(-clubDims[,1], clubDims[,2], clubMeans$group, cex=0.6, pos=3, col="red")
+title(main="Team Scores on Offensive and Defensive Principle Components")
+
 
