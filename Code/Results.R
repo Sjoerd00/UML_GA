@@ -28,9 +28,12 @@ rotmat2  <- varimax(PCAobj2$rotation[,1:2])$rotmat
 PCAvarmax2 <- PCAobj2$rotation[,1:2] %*% rotmat2
 
 # Sparse PCA
+# add optimal Caio values
 spc <- SPC(X, sumabsv=sqrt(33), K=5)
 spc$v
 
+pmd <- PMD(X, sumabsu = 1, sumabsv = 1)
+pmd
 # Plots
 plot(PCAbipl(X[,1:5]))
 plot(PCAbipl(Xcorr[1:29,1:29]))
