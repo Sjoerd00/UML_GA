@@ -11,7 +11,7 @@ summary(fifa)
 
 fifa$clubNR <- as.numeric(fifa$club)
 df <- fifa %>% fastDummies::dummy_columns('Position')
-df <- fifa %>% datawizard::demean("crossing", group="club")
+#df <- fifa %>% datawizard::demean("crossing", group="club")
 X <- dplyr::select(df, -c(name, club, Position, eur_value, eur_wage, eur_release_clause)) %>% scale
 
 # PCA
@@ -33,13 +33,20 @@ rotmat2  <- varimax(PCAobj2$rotation[,1:2])$rotmat
 PCAvarmax2 <- PCAobj2$rotation[,1:2] %*% rotmat2
 
 # Sparse PCA
-# add optimal Caio values
 spc <- SPC(X, sumabsv=sqrt(dim(X)[2]), K=2)
 spc$v
 
-pmd <- PMD(X, sumabsu = 1, sumabsv = 1)
-pmd
+pmd <- PMD(X, sumabsu = sqrt(47), sumabsv = sqrt(47))
+pmd$v *100
 
 # Plots
 plot(PCAbipl(X))
 plot(PCAbipl(Xcorr[1:29,1:29]))
+biplot(PCAobj2)
+
+
+# PC of a player or team
+playerScores <- X %*% PCAobj2$rotation[,1:2]
+playerScores<-cbind(playerScores, df[,c("eur_value", "eur_wage")])
+playerCorr <- cor(playerScores)
+
