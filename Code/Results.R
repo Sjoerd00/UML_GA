@@ -6,7 +6,8 @@ p_load(tidyverse,
        dplyr,
        datawizard,
        miceadds,
-       car)
+       car,
+       scales)
 load("~/GitHub/UML_GA/Code/FIFA2017_NL.RData")
 
 ## Data
@@ -55,8 +56,23 @@ playerCorr <- cor(playerScores)
 clubMeans <- GroupMean(X, df$club)
 clubDims <- as.matrix(clubMeans[,2:dim(clubMeans)[2]]) %*% PCAobj2$rotation[,1:2]
 
-
 ## Plots
+
+frac_var <- function(x) x^2/sum(x^2)
+# Scree
+PCAobj2$sdev %>% 
+  as_tibble() %>% 
+  frac_var() %>% 
+  mutate(Comp = colnames(PCAobj2$x)) %>% 
+  slice(1:9) %>% 
+  ggplot(aes(x=Comp, y = value)) + 
+  geom_bar(stat = "identity", fill = "#4DC5F9") +
+  geom_hline(yintercept = 0.03, linetype=2) +
+  xlab("Principal Components") +
+  scale_y_continuous(name = "Variance Explained", breaks = seq(0,0.8,0.1), labels = percent_format(accuracy = 5L)) +
+  theme_classic(base_size = 14)
+
+
 plot(PCAbipl(X))
 biplot(PCAobj2)
 
