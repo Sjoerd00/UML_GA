@@ -8,11 +8,16 @@ p_load(tidyverse,
        miceadds,
        car,
        scales,
-       ggplot2,reshape)
+       ggplot2,
+       reshape,
+       doBy)
 load("~/GitHub/UML_GA/Code/FIFA2017_NL.RData")
 
 ## Data
 summary(fifa)
+summaryBy(value ~ custid, data = mydf, 
+          FUN = list(mean, max, min, median, sd))
+
 n <- names(fifa)
 
 fifa$clubNR <- as.numeric(fifa$club)
@@ -23,6 +28,15 @@ dfDemean <- fifa %>% group_by(club) %>%
   mutate(across(n[4:35], ~ .x - mean(.x), .names = "{col}"))
 
 X <- dplyr::select(as.data.frame(dfDemean), -c(name, club, Position, eur_value, eur_wage, eur_release_clause, clubNR)) %>% scale
+
+# select player that are only above the median in terms of salary.
+tam <- cbind(X, df[,c("club", "eur_wage")])
+teamAboveMed <- tibble()
+for (team in unique(df$club)){
+  teamMed <- median(tam$eur_wage[tam$club==team])
+  teamAboveMed <- rbind(teamAboveMed, subset(tam, club==team & eur_wage>teamMed))
+}
+Xmedianed <- dplyr::select(teamAboveMed, -c(club, eur_wage))
 
 ## PCA
 PCAobj <- prcomp(X, scale. = FALSE, rank=2)
@@ -50,14 +64,18 @@ pmd <- PMD(X, sumabsu = sqrt(47), sumabsv = sqrt(47))
 pmd$v *100
 
 ## PC of a player
+df[,c("eur_valu", "eur_wage")] <- scale(df[,c("eur_value", "eur_wage")])
 playerScores <- X %*% PCAobj2$rotation[,1:2]
 playerScores<-cbind(playerScores, df[,c("eur_value", "eur_wage")])
 playerCorr <- cor(playerScores)
+summary(lm(eur_wage~PC1 + PC2 -1, playerScores))
 
 ## PC of a team
 clubMeans <- GroupMean(X, df$club)
 clubDims <- as.matrix(clubMeans[,2:dim(clubMeans)[2]]) %*% PCAobj2$rotation[,1:2]
 
+clubMeans2 <- GroupMean(Xmedianed, teamAboveMed$club)
+clubDims2 <- as.matrix(clubMeans2[,2:dim(clubMeans2)[2]]) %*% PCAobj2$rotation[,1:2]
 ## Plots
 
 frac_var <- function(x) x^2/sum(x^2)
@@ -132,5 +150,14 @@ abline(v = 0, col = "black", lwd = 1, lty=2)
 abline(h = 0, col = "black", lwd = 1, lty=2)
 text(-clubDims[,1], clubDims[,2], clubMeans$group, cex=0.6, pos=3, col="red")
 title(main="Team Scores on Offensive and Defensive Principle Components")
+
+plot(-clubDims2[,1], clubDims2[,2],
+     xlab="Offensive Principle Component", ylab="Defensive Principle Component")
+abline(v = 0, col = "black", lwd = 1, lty=2)
+abline(h = 0, col = "black", lwd = 1, lty=2)
+text(-clubDims2[,1], clubDims2[,2], clubMeans2$group, cex=0.6, pos=3, col="red")
+title(main="Team Scores on Offensive and Defensive Principle Components")
+
+
 
 
