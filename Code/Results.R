@@ -53,9 +53,9 @@ spc <- SPC(Xcorr, sumabsv = sqrt(dim(X)[2]), K = 2)
 summary(spc)
 
 ## PC of a team
-salarySum <- GroupSum(df$eur_wage, df$club)
+salarySum <- GroupSum(df$eur_value, df$club)
 salarySum <- left_join(df, salarySum, by = c("club" = "group"))
-salarySum$propWage <- salarySum$eur_wage / salarySum$data1
+salarySum$propWage <- salarySum$eur_value / salarySum$data1
 
 clubSum <- GroupSum(X * salarySum$propWage , df$club)
 clubMeans <- GroupMean(X , df$club)
@@ -66,26 +66,25 @@ clubDimsAvg <-
   as.matrix(clubMeans[, 2:dim(clubMeans)[2]]) %*% PCAobj2$rotation[, 1:2]
 
 ## PC of a player
-df[, c("eur_wage_sc")] <- scale(df[, c("eur_wage")])
 playerScores <- X %*% PCAobj2$rotation[, 1:2]
 # playerScores <- playerScores[, 1:5]
-playerScores <- cbind(playerScores, df[, c("eur_wage_sc",
-                                           "club",
+playerScores <- cbind(playerScores, df[, c("club",
                                            "Position_Mid",
                                            "Position_Def",
-                                           "Position_Gk")])
+                                           "Position_Gk")], 
+                      scale(df[, c("eur_value")]))
 playerCorr <- cor(playerScores[1:5])
-summary(lm(eur_wage_sc ~ . , playerScores))
+summary(lm(eur_value ~ . , playerScores))
 
 ## PC player Sparse
 sparsePCscore <- X %*% spc$v
-sparsePCscore <- cbind(sparsePCscore, df[, c("eur_wage_sc",
-                                             "club",
+sparsePCscore <- cbind(sparsePCscore, df[, c("club",
                                              "Position_Mid",
                                              "Position_Def",
-                                             "Position_Gk")])
+                                             "Position_Gk")],
+                       scale(df[, c("eur_value")]))
 playerCorrSparse <- cor(sparsePCscore[1:2])
-summary(lm(eur_wage_sc ~ . , sparsePCscore))
+summary(lm(eur_value ~ . , sparsePCscore))
 
 ## Plots
 
@@ -146,7 +145,7 @@ plot(
   -clubDimsSum[, 1],
   clubDimsSum[, 2],
   xlim = c(-2.5, 2.5),
-  ylim = c(-1.5, 1.5),
+  ylim = c(-2.5, 2.5),
   xlab = "Offensive Principle Component",
   ylab = "Defensive Principle Component"
 )
