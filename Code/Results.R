@@ -25,7 +25,7 @@ fifa$clubNR <- as.numeric(fifa$club)
 df <- fifa %>% fastDummies::dummy_columns('Position')
 X <- dplyr::select(df, -c(name, club, Position, eur_value, eur_wage,
                           eur_release_clause,  Position_FW,
-                          Position_Mid,Position_Def,Position_Gk)) %>% scale
+                          Position_Mid,Position_Def,Position_Gk, clubNR)) %>% scale
 
 # dfDemean <- fifa %>% group_by(Position) %>% 
 #   mutate(across(n[4:35], ~ .x - mean(.x), .names = "{col}"))
@@ -34,29 +34,25 @@ X <- dplyr::select(df, -c(name, club, Position, eur_value, eur_wage,
 #                                                eur_wage, eur_release_clause, clubNR)) %>% scale
 
 ## PCA
-PCAobj <- prcomp(X, scale. = FALSE, rank=2)
+PCAobj <- prcomp(X, scale. = FALSE, rank=3)
 summary(PCAobj)
 plot(PCAobj, type='l')
 
 ## PCA on Correlation Matrix for kaiser rule
 Xcorr <- cor(X)
-PCAobj2 <- prcomp(Xcorr, 2)
+PCAobj2 <- prcomp(Xcorr, 3)
 summary(PCAobj2)
 plot(PCAobj2, type='l')
   
 ## Rotation
-rotmat  <- varimax(PCAobj$rotation[,1:2])$rotmat
-PCAvarmax <- PCAobj$rotation[,1:2] %*% rotmat
+rotmat  <- varimax(PCAobj$rotation[,1:5])$rotmat
+PCAvarmax <- PCAobj$rotation[,1:5] %*% rotmat
 
-rotmat2  <- varimax(PCAobj2$rotation[,1:2])$rotmat
-PCAvarmax2 <- PCAobj2$rotation[,1:2] %*% rotmat2
+rotmat2  <- varimax(PCAobj2$rotation[,1:5])$rotmat
+PCAvarmax2 <- PCAobj2$rotation[,1:5] %*% rotmat2
 
 ## Sparse PCA
 spc <- SPC(X, sumabsv=sqrt(dim(X)[2]), K=2)
-spc$v
-
-pmd <- PMD(X, sumabsu = sqrt(47), sumabsv = sqrt(47))
-pmd$v * 100
 
 ## PC of a team
 salarySum <- GroupSum(df$eur_wage, df$club)
@@ -72,10 +68,18 @@ clubDimsAvg <- as.matrix(clubMeans[,2:dim(clubMeans)[2]]) %*% PCAobj2$rotation[,
 ## PC of a player
 df[,c("eur_wage_sc")] <- scale(df[,c("eur_wage")])
 playerScores <- X %*% PCAobj2$rotation[,1:2]
+# playerScores <- playerScores[, 1:5]
 playerScores<-cbind(playerScores, df[,c( "eur_wage_sc", "club", 
                                          "Position_Mid","Position_Def","Position_Gk")])
-playerCorr <- cor(playerScores)
+playerCorr <- cor(playerScores[1:5])
 summary(lm(eur_wage_sc~. , playerScores))
+
+## PC player Sparse
+sparsePCscore <- X %*% spc$v
+sparsePCscore<-cbind(sparsePCscore, df[,c( "eur_wage_sc", "club", 
+                                         "Position_Mid","Position_Def","Position_Gk")])
+playerCorrSparse <- cor(sparsePCscore[1:2])
+summary(lm(eur_wage_sc~. , sparsePCscore))
 
 ## Plots
 
@@ -94,10 +98,11 @@ PCAobj2$sdev %>%
   theme_classic(base_size = 14)
 
 # Loadings Heatmap
-PCAvarmax2[,1] <- PCAvarmax2[,1]*(-1)
+PCAvarmax2<- PCAvarmax2[order(-PCAvarmax2[,1]),]
 t<-PCAvarmax2 %>% as.data.frame %>% rownames_to_column() %>% melt
 
 ggplot(t, aes(variable, rowname, fill= value)) + 
+  scale_fill_gradient2(low="darkblue", high="darkgreen", guide="colorbar") +
   geom_tile()
 
 # heatmap for PCA loadings
