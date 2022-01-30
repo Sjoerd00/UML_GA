@@ -23,21 +23,15 @@ n <- names(fifa)
 
 fifa$clubNR <- as.numeric(fifa$club)
 df <- fifa %>% fastDummies::dummy_columns('Position')
-X <- dplyr::select(df, -c(name, club, Position, eur_value, eur_wage, eur_release_clause)) %>% scale
+X <- dplyr::select(df, -c(name, club, Position, eur_value, eur_wage,
+                          eur_release_clause,  Position_FW,
+                          Position_Mid,Position_Def,Position_Gk)) %>% scale
 
-dfDemean <- fifa %>% group_by(club) %>% mean
-  mutate(across(n[4:35], ~ .x - mean(.x), .names = "{col}"))
-
-X <- dplyr::select(as.data.frame(dfDemean), -c(name, club, Position, eur_value, eur_wage, eur_release_clause, clubNR)) %>% scale
-
-# select player that are only above the median in terms of salary.
-tam <- cbind(X, df[,c("club", "eur_wage")])
-teamAboveMed <- tibble()
-for (team in unique(df$club)){
-  teamMed <- median(tam$eur_wage[tam$club==team])
-  teamAboveMed <- rbind(teamAboveMed, subset(tam, club==team & eur_wage>teamMed))
-}
-Xmedianed <- dplyr::select(teamAboveMed, -c(club, eur_wage))
+# dfDemean <- fifa %>% group_by(Position) %>% 
+#   mutate(across(n[4:35], ~ .x - mean(.x), .names = "{col}"))
+# 
+# X <- dplyr::select(as.data.frame(dfDemean), -c(name, club, Position, eur_value, 
+#                                                eur_wage, eur_release_clause, clubNR)) %>% scale
 
 ## PCA
 PCAobj <- prcomp(X, scale. = FALSE, rank=2)
@@ -62,21 +56,27 @@ spc <- SPC(X, sumabsv=sqrt(dim(X)[2]), K=2)
 spc$v
 
 pmd <- PMD(X, sumabsu = sqrt(47), sumabsv = sqrt(47))
-pmd$v *100
-
-## PC of a player
-df[,c("eur_valu", "eur_wage")] <- scale(df[,c("eur_value", "eur_wage")])
-playerScores <- X %*% PCAobj2$rotation[,1:2]
-playerScores<-cbind(playerScores, df[,c("eur_value", "eur_wage")])
-playerCorr <- cor(playerScores)
-summary(lm(eur_wage~PC1 + PC2 -1, playerScores))
+pmd$v * 100
 
 ## PC of a team
-clubMeans <- GroupMean(X, df$club)
-clubDims <- as.matrix(clubMeans[,2:dim(clubMeans)[2]]) %*% PCAobj2$rotation[,1:2]
+salarySum <- GroupSum(df$eur_wage, df$club)
+salarySum <- left_join(df, salarySum, by = c("club"="group"))
+salarySum$propWage <- salarySum$eur_wage / salarySum$data1
 
-clubMeans2 <- GroupMean(Xmedianed, teamAboveMed$club)
-clubDims2 <- as.matrix(clubMeans2[,2:dim(clubMeans2)[2]]) %*% PCAobj2$rotation[,1:2]
+clubSum <- GroupSum(X*salarySum$propWage , df$club)
+clubMeans <- GroupMean(X , df$club)
+
+clubDimsSum <- as.matrix(clubSum[,2:dim(clubSum)[2]]) %*% PCAobj2$rotation[,1:2]
+clubDimsAvg <- as.matrix(clubMeans[,2:dim(clubMeans)[2]]) %*% PCAobj2$rotation[,1:2]
+
+## PC of a player
+df[,c("eur_wage_sc")] <- scale(df[,c("eur_wage")])
+playerScores <- X %*% PCAobj2$rotation[,1:2]
+playerScores<-cbind(playerScores, df[,c( "eur_wage_sc", "club", 
+                                         "Position_Mid","Position_Def","Position_Gk")])
+playerCorr <- cor(playerScores)
+summary(lm(eur_wage_sc~. , playerScores))
+
 ## Plots
 
 frac_var <- function(x) x^2/sum(x^2)
@@ -142,35 +142,17 @@ ggplot(t, aes(variable, rowname, fill= value)) +
 #   theme(panel.grid.major = element_blank(),  panel.grid.minor = element_blank())
 
 
-
 # Team Plot
-salarySum <- GroupSum(df$eur_wage, df$club)
-salarySum <- left_join(df, salarySum, by = c("club"="group"))
-clubDimsWageAdj <- clubDims * salarySum$data1
-
-transition <- prop.table(tapply(df$weights, list(data$eur_wage, data$weights), sum), 2)
-
-plot(-clubDims[,1], clubDims[,2], xlim=c(-1.5,1.5),
+plot(-clubDimsSum[,1], clubDimsSum[,2], xlim=c(-2.5,2.5), ylim=c(-1.5,1.5),
      xlab="Offensive Principle Component", ylab="Defensive Principle Component")
 # abline(v = 0, col = "black", lwd = 1, lty=2)
 # abline(h = 0, col = "black", lwd = 1, lty=2)
-text(-clubDims[,1], clubDims[,2], clubMeans$group, cex=0.6, pos=3, col="red")
+text(-clubDimsSum[,1], clubDimsSum[,2], clubMeans$group, cex=0.6, pos=3, col="red")
 title(main="Team Scores on Offensive and Defensive Principle Components")
 
-plot(clubDims[,2], salarySum[,2], xlim=c(-1.5,1.5),
+plot(-clubDimsAvg[,1], clubDimsAvg[,2], xlim=c(-2.5,2.5), ylim=c(-1.5,1.5),
      xlab="Offensive Principle Component", ylab="Defensive Principle Component")
 # abline(v = 0, col = "black", lwd = 1, lty=2)
 # abline(h = 0, col = "black", lwd = 1, lty=2)
-text(clubDims[,2], salarySum[,2], clubMeans$group, cex=0.6, pos=3, col="red")
+text(-clubDimsAvg[,1], clubDimsAvg[,2], clubSum$group, cex=0.6, pos=3, col="red")
 title(main="Team Scores on Offensive and Defensive Principle Components")
-
-plot(-clubDimsWageAdj[,1], clubDimsWageAdj[,2],
-     xlab="Offensive Principle Component", ylab="Defensive Principle Component")
-abline(v = 0, col = "black", lwd = 1, lty=2)
-abline(h = 0, col = "black", lwd = 1, lty=2)
-text(-clubDimsWageAdj[,1], clubDimsWageAdj[,2], salarySum$group, cex=0.6, pos=3, col="red")
-title(main="Team Scores on Offensive and Defensive Principle Components")
-
-
-
-
