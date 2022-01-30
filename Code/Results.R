@@ -10,7 +10,8 @@ p_load(tidyverse,
        scales,
        ggplot2,
        reshape,
-       doBy)
+       doBy,
+       weights)
 load("~/GitHub/UML_GA/Code/FIFA2017_NL.RData")
 
 ## Data
@@ -24,7 +25,7 @@ fifa$clubNR <- as.numeric(fifa$club)
 df <- fifa %>% fastDummies::dummy_columns('Position')
 X <- dplyr::select(df, -c(name, club, Position, eur_value, eur_wage, eur_release_clause)) %>% scale
 
-dfDemean <- fifa %>% group_by(club) %>%
+dfDemean <- fifa %>% group_by(club) %>% mean
   mutate(across(n[4:35], ~ .x - mean(.x), .names = "{col}"))
 
 X <- dplyr::select(as.data.frame(dfDemean), -c(name, club, Position, eur_value, eur_wage, eur_release_clause, clubNR)) %>% scale
@@ -142,20 +143,32 @@ ggplot(t, aes(variable, rowname, fill= value)) +
 
 
 
-
 # Team Plot
+salarySum <- GroupSum(df$eur_wage, df$club)
+salarySum <- left_join(df, salarySum, by = c("club"="group"))
+clubDimsWageAdj <- clubDims * salarySum$data1
+
+transition <- prop.table(tapply(df$weights, list(data$eur_wage, data$weights), sum), 2)
+
 plot(-clubDims[,1], clubDims[,2], xlim=c(-1.5,1.5),
      xlab="Offensive Principle Component", ylab="Defensive Principle Component")
-abline(v = 0, col = "black", lwd = 1, lty=2)
-abline(h = 0, col = "black", lwd = 1, lty=2)
+# abline(v = 0, col = "black", lwd = 1, lty=2)
+# abline(h = 0, col = "black", lwd = 1, lty=2)
 text(-clubDims[,1], clubDims[,2], clubMeans$group, cex=0.6, pos=3, col="red")
 title(main="Team Scores on Offensive and Defensive Principle Components")
 
-plot(-clubDims2[,1], clubDims2[,2],
+plot(clubDims[,2], salarySum[,2], xlim=c(-1.5,1.5),
+     xlab="Offensive Principle Component", ylab="Defensive Principle Component")
+# abline(v = 0, col = "black", lwd = 1, lty=2)
+# abline(h = 0, col = "black", lwd = 1, lty=2)
+text(clubDims[,2], salarySum[,2], clubMeans$group, cex=0.6, pos=3, col="red")
+title(main="Team Scores on Offensive and Defensive Principle Components")
+
+plot(-clubDimsWageAdj[,1], clubDimsWageAdj[,2],
      xlab="Offensive Principle Component", ylab="Defensive Principle Component")
 abline(v = 0, col = "black", lwd = 1, lty=2)
 abline(h = 0, col = "black", lwd = 1, lty=2)
-text(-clubDims2[,1], clubDims2[,2], clubMeans2$group, cex=0.6, pos=3, col="red")
+text(-clubDimsWageAdj[,1], clubDimsWageAdj[,2], salarySum$group, cex=0.6, pos=3, col="red")
 title(main="Team Scores on Offensive and Defensive Principle Components")
 
 
