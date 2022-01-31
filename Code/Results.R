@@ -4,6 +4,9 @@ p_load(tidyverse, fastDummies,PMA,UBbipl,dplyr,miceadds,car,scales,ggplot2,resha
 )
 load("~/GitHub/UML_GA/Code/FIFA2017_NL.RData")
 
+frac_var <- function(x)
+  x ^ 2 / sum(x ^ 2)
+
 ## Data
 summary(fifa)
 summaryBy(value ~ custid,
@@ -14,25 +17,10 @@ fifa$clubNR <- as.numeric(fifa$club)
 df <- fifa %>% fastDummies::dummy_columns('Position')
 X <- dplyr::select(
   df,
-  -c(
-    name,
-    club,
-    Position,
-    eur_value,
-    eur_wage,
-    eur_release_clause,
-    Position_FW,
-    Position_Mid,
-    Position_Def,
-    Position_Gk,
-    clubNR,
+  -c(name,club,Position,eur_value,eur_wage,eur_release_clause,Position_FW,
+    Position_Mid, Position_Def, Position_Gk, clubNR
   )
 ) %>% scale
-
-## PCA
-PCAobj <- prcomp(X, scale. = FALSE, rank = 2)
-summary(PCAobj)
-plot(PCAobj, type = 'l')
 
 ## PCA on Correlation Matrix for kaiser rule
 Xcorr <- cor(X)
@@ -50,9 +38,9 @@ PCAvarmax2 <- PCAobj2$rotation[, 1:2] %*% rotmat2
 ## Sparse PCA
 # how to show vairance explained?
 spc <- SPC(X, sumabsv = sqrt(dim(X)[2]), K = 9)
-summary(spc)
 
 ## PC of a team
+# calculation wage proportion
 salarySum <- GroupSum(df$eur_wage, df$club)
 salarySum <- left_join(df, salarySum, by = c("club" = "group"))
 salarySum$propWage <- salarySum$eur_wage / salarySum$data1
@@ -60,37 +48,38 @@ salarySum$propWage <- salarySum$eur_wage / salarySum$data1
 clubSum <- GroupSum(X * salarySum$propWage , df$club)
 clubMeans <- GroupMean(X , df$club)
 
+# calculation principle component score weighted average and regular average
 clubDimsSum <-
   as.matrix(clubSum[, 2:dim(clubSum)[2]]) %*% PCAobj2$rotation[, 1:2]
 clubDimsAvg <-
   as.matrix(clubMeans[, 2:dim(clubMeans)[2]]) %*% PCAobj2$rotation[, 1:2]
 
 ## PC of a player
+# calculation of principle component score player
 playerScores <- X %*% PCAobj2$rotation[, 1:2]
-# playerScores <- playerScores[, 1:5]
+playerScores[,1] <- -playerScores[, 1]
 playerScores <- cbind(playerScores, df[, c("club",
                                            "Position_Mid",
                                            "Position_Def",
                                            "Position_Gk")], 
                       scale(df[, c("eur_value")]))
 playerCorr <- cor(playerScores[1:5])
+# principle component regression PCA based
 summary(lm(eur_value ~ . , playerScores))
 
 ## PC player Sparse
-sparsePCscore <- X %*% spc$v
+# calculation of sparse principle component score player
+sparsePCscore <- -X %*% spc$v[,1:2]
 sparsePCscore <- cbind(sparsePCscore, df[, c("club",
                                              "Position_Mid",
                                              "Position_Def",
                                              "Position_Gk")],
                        scale(df[, c("eur_value")]))
 playerCorrSparse <- cor(sparsePCscore[1:2])
+# principle component regression SPCA based
 summary(lm(eur_value ~ . , sparsePCscore))
 
 ## Plots
-
-frac_var <- function(x)
-  x ^ 2 / sum(x ^ 2)
-
 # Scree Sparse PCA
 c(spc$prop.var.explained[1], diff(spc$prop.var.explained, 1)) %>% as_tibble() %>%
   mutate(Comp = colnames(PCAobj2$x)[1:9]) %>%
@@ -105,7 +94,7 @@ c(spc$prop.var.explained[1], diff(spc$prop.var.explained, 1)) %>% as_tibble() %>
   ) +
   theme_classic(base_size = 14)
 
-# Scree Normal PCA
+# Scree PCA
 PCAobj2$sdev %>%
   as_tibble() %>%
   frac_var() %>%
@@ -122,40 +111,41 @@ PCAobj2$sdev %>%
   ) +
   theme_classic(base_size = 14)
 
-# Loadings Heatmap
-PCAvarmax2s <- PCAvarmax2[order(-PCAvarmax2[, 1]), ]
+# Loadings Heatmaps
+rownamesHeat1 <- c("crossing","finishing","heading accuracy","short_passing","volleys",
+                   "dribbling","curve","free kick accuracy", "long passing", "ball_control",
+                   "acceleration","sprint speed", "agility", "reactions", "balance", "shot_power", "jumping",
+                   "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning","vision",
+                   "penalties", "composure","marking","standing tackle", "sliding tackle" )
+PCAvarmax2s <- PCAobj2$rotation[, 1:2][order(-PCAobj2$rotation[, 1]), ]
+colnames(PCAvarmax2s) <- c("PC Offensive", "PC Defensive")
+
 t <- PCAvarmax2s %>% as.data.frame %>% rownames_to_column() %>% melt
 
 ggplot(t, aes(variable, rowname, fill = value)) +
   aes(y = fct_inorder(rowname)) +
   scale_fill_gradient2(low = "darkblue", high = "darkgreen", guide = "colorbar") +
-  geom_tile()
+  theme_grey(base_size = 22)+
+  geom_tile() +
+  theme(axis.title.x=element_blank(),
+        axis.title.y=element_blank())
 
 SparseLoadings <-
-  spc$v %>% as.data.frame(row.names = rownames(PCAvarmax2))
+  spc$v[, 1:2] %>% as.data.frame(row.names = rownames(PCAvarmax2s))
 SparseLoadings <- SparseLoadings[order(spc$v[, 1]),]
 t2 <- SparseLoadings %>% rownames_to_column() %>% melt
 
 ggplot(t2, aes(variable, rowname, fill = value)) +
   aes(y = fct_inorder(rowname)) +
   scale_fill_gradient2(low = "darkblue", high = "darkgreen", guide = "colorbar") +
-  geom_tile()
+  theme_grey(base_size = 22)+
+  geom_tile()+
+  theme(axis.title.x=element_blank(),
+        axis.title.y=element_blank())
 
 
-
-# BiPlot
-# scale=500
-# ggplot(data=vst_pca_all, mapping=aes(x=PC1, y=PC2)) +
-#   geom_point(size = 3, aes(shape = Replicate, color = Time)) +
-#   geom_vline(xintercept = 0, linetype=2) +
-#   geom_hline(yintercept = 0, linetype=2) +
-#   geom_segment(data=genes.selected, mapping=aes(xend=scale*PC1,yend=scale*PC2), x=0, y=0, arrow=arrow(), color="grey") +
-#   geom_label(data=genes.selected, mapping=aes(x=scale*PC1,y=scale*PC2, label=Gene_ID), size=2, hjust="outward", vjust="outward") +
-#   theme_bw() +
-#   theme(panel.grid.major = element_blank(),  panel.grid.minor = element_blank())
-
-
-# Team Plot
+### Team Plot
+# plot wage-weighted average teams 
 plot(
   -clubDimsSum[, 1],
   clubDimsSum[, 2],
@@ -164,8 +154,6 @@ plot(
   xlab = "Offensive Principle Component",
   ylab = "Defensive Principle Component"
 )
-# abline(v = 0, col = "black", lwd = 1, lty=2)
-# abline(h = 0, col = "black", lwd = 1, lty=2)
 text(
   -clubDimsSum[, 1],
   clubDimsSum[, 2],
@@ -176,6 +164,7 @@ text(
 )
 title(main = "Team Scores on Offensive and Defensive Principle Components")
 
+# Plot regular average teams
 plot(
   -clubDimsAvg[, 1],
   clubDimsAvg[, 2],
@@ -184,8 +173,6 @@ plot(
   xlab = "Offensive Principle Component",
   ylab = "Defensive Principle Component"
 )
-# abline(v = 0, col = "black", lwd = 1, lty=2)
-# abline(h = 0, col = "black", lwd = 1, lty=2)
 text(
   -clubDimsAvg[, 1],
   clubDimsAvg[, 2],
