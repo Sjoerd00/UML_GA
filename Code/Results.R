@@ -7,7 +7,7 @@ load("~/GitHub/UML_GA/Code/FIFA2017_NL.RData")
 frac_var <- function(x)
   x ^ 2 / sum(x ^ 2)
 
-## Data
+############################# Data #############################
 summary(fifa)
 summaryBy(value ~ custid,
           data = mydf,
@@ -22,18 +22,12 @@ X <- dplyr::select(
   )
 ) %>% scale
 
+############################# PCA #############################
 ## PCA on Correlation Matrix for kaiser rule
 Xcorr <- cor(X)
 PCAobj2 <- prcomp(Xcorr, 2)
 summary(PCAobj2)
 plot(PCAobj2, type = 'l')
-
-## Rotation
-rotmat  <- varimax(PCAobj$rotation[, 1:2])$rotmat
-PCAvarmax <- PCAobj$rotation[, 1:2] %*% rotmat
-
-rotmat2  <- varimax(PCAobj2$rotation[, 1:2])$rotmat
-PCAvarmax2 <- PCAobj2$rotation[, 1:2] %*% rotmat2
 
 ## Sparse PCA
 # how to show vairance explained?
@@ -79,7 +73,7 @@ playerCorrSparse <- cor(sparsePCscore[1:2])
 # principle component regression SPCA based
 summary(lm(eur_value ~ . , sparsePCscore))
 
-## Plots
+############################# Plots #############################
 # Scree Sparse PCA
 c(spc$prop.var.explained[1], diff(spc$prop.var.explained, 1)) %>% as_tibble() %>%
   mutate(Comp = colnames(PCAobj2$x)[1:9]) %>%
@@ -111,16 +105,11 @@ PCAobj2$sdev %>%
   ) +
   theme_classic(base_size = 14)
 
-# Loadings Heatmaps
-rownamesHeat1 <- c("crossing","finishing","heading accuracy","short_passing","volleys",
-                   "dribbling","curve","free kick accuracy", "long passing", "ball_control",
-                   "acceleration","sprint speed", "agility", "reactions", "balance", "shot_power", "jumping",
-                   "stamina", "strength", "long_shots", "aggression", "interceptions", "positioning","vision",
-                   "penalties", "composure","marking","standing tackle", "sliding tackle" )
-PCAvarmax2s <- PCAobj2$rotation[, 1:2][order(-PCAobj2$rotation[, 1]), ]
-colnames(PCAvarmax2s) <- c("PC Offensive", "PC Defensive")
+# Loadings Heatmaps PCA
+PCA2s <- PCAobj2$rotation[, 1:2][order(-PCAobj2$rotation[, 1]), ]
+colnames(PCA2s) <- c("PC Offensive", "PC Defensive")
 
-t <- PCAvarmax2s %>% as.data.frame %>% rownames_to_column() %>% melt
+t <- PCA2s %>% as.data.frame %>% rownames_to_column() %>% melt
 
 ggplot(t, aes(variable, rowname, fill = value)) +
   aes(y = fct_inorder(rowname)) +
@@ -130,8 +119,10 @@ ggplot(t, aes(variable, rowname, fill = value)) +
   theme(axis.title.x=element_blank(),
         axis.title.y=element_blank())
 
+# Loadings Heatmaps SPCA
 SparseLoadings <-
-  spc$v[, 1:2] %>% as.data.frame(row.names = rownames(PCAvarmax2s))
+  spc$v[, 1:2] %>% as.data.frame(row.names = colnames(X))
+colnames(SparseLoadings) <- c("PC Offensive", "PC Defensive")
 SparseLoadings <- SparseLoadings[order(spc$v[, 1]),]
 t2 <- SparseLoadings %>% rownames_to_column() %>% melt
 
@@ -143,14 +134,13 @@ ggplot(t2, aes(variable, rowname, fill = value)) +
   theme(axis.title.x=element_blank(),
         axis.title.y=element_blank())
 
-
 ### Team Plot
 # plot wage-weighted average teams 
 plot(
   -clubDimsSum[, 1],
   clubDimsSum[, 2],
-  xlim = c(-2.5, 2.5),
-  ylim = c(-2.5, 2.5),
+  xlim = c(-1.5, 2.5),
+  ylim = c(-1.5, 2.5),
   xlab = "Offensive Principle Component",
   ylab = "Defensive Principle Component"
 )
