@@ -53,9 +53,9 @@ spc <- SPC(Xcorr, sumabsv = sqrt(dim(X)[2]), K = 2)
 summary(spc)
 
 ## PC of a team
-salarySum <- GroupSum(df$eur_value, df$club)
+salarySum <- GroupSum(df$eur_wage, df$club)
 salarySum <- left_join(df, salarySum, by = c("club" = "group"))
-salarySum$propWage <- salarySum$eur_value / salarySum$data1
+salarySum$propWage <- salarySum$eur_wage / salarySum$data1
 
 clubSum <- GroupSum(X * salarySum$propWage , df$club)
 clubMeans <- GroupMean(X , df$club)
