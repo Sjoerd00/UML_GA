@@ -49,7 +49,7 @@ PCAvarmax2 <- PCAobj2$rotation[, 1:2] %*% rotmat2
 
 ## Sparse PCA
 # how to show vairance explained?
-spc <- SPC(Xcorr, sumabsv = sqrt(dim(X)[2]), K = 2)
+spc <- SPC(X, sumabsv = sqrt(dim(X)[2]), K = 9)
 summary(spc)
 
 ## PC of a team
@@ -90,7 +90,22 @@ summary(lm(eur_value ~ . , sparsePCscore))
 
 frac_var <- function(x)
   x ^ 2 / sum(x ^ 2)
-# Scree
+
+# Scree Sparse PCA
+c(spc$prop.var.explained[1], diff(spc$prop.var.explained, 1)) %>% as_tibble() %>%
+  mutate(Comp = colnames(PCAobj2$x)[1:9]) %>%
+  ggplot(aes(x = Comp, y = value)) +
+  geom_bar(stat = "identity", fill = "#4DC5F9") +
+  geom_hline(yintercept = 0.1, linetype = 2) +
+  xlab("Principal Components") +
+  scale_y_continuous(
+    name = "Variance Explained",
+    breaks = seq(0, 0.8, 0.1),
+    labels = percent_format(accuracy = 5L)
+  ) +
+  theme_classic(base_size = 14)
+
+# Scree Normal PCA
 PCAobj2$sdev %>%
   as_tibble() %>%
   frac_var() %>%
@@ -98,7 +113,7 @@ PCAobj2$sdev %>%
   slice(1:9) %>%
   ggplot(aes(x = Comp, y = value)) +
   geom_bar(stat = "identity", fill = "#4DC5F9") +
-  geom_hline(yintercept = 0.03, linetype = 2) +
+  geom_hline(yintercept = 0.1, linetype = 2) +
   xlab("Principal Components") +
   scale_y_continuous(
     name = "Variance Explained",
